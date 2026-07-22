@@ -1,10 +1,9 @@
+import os
 import time
 from datetime import datetime, timedelta
 import pandas as pd
 import requests
-#import pyarrow as pa
 import duckdb
-
 
 # 1. API Setup & Configuration
 API_KEY = "DaLuonEpJvkPvHEuy65yNyQnoVCrDpTp"
@@ -38,31 +37,33 @@ for start, end in date_ranges:
     # Sleep 13 seconds between requests to respect Polygon free rate limit (5 calls/min)
     time.sleep(13)
 
-# 2. Build & Format DataFrame (Extracting Full OHLCV)
+# 2. Build & Format DataFrame
 if all_bars:
     df = pd.DataFrame(all_bars)
     
-    # Convert Polygon millisecond timestamp to datetime index
-    df['timestamp'] = pd.to_datetime(df['t'], unit='ms')
-    df.set_index('timestamp', inplace=True)
+    # Convert Polygon millisecond timestamp ('t') to UTC datetime
+    df['timestamp'] = pd.to_datetime(df['t'], unit='ms', utc=True)
     
-    # Extract Open ('o'), High ('h'), Low ('l'), Close ('c'), and Volume ('v')
-    df = df[['o', 'h', 'l', 'c', 'v']]
-    df.columns = ['open', 'high', 'low', 'close', 'volume']
+    # Keep timestamp as a standard column so DuckDB includes it in the output table
+    df = df[['timestamp', 'o', 'h', 'l', 'c', 'v']]
+    df.columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
     
-    # Sort chronologically and drop any accidental duplicate timestamps
-    df.sort_index(inplace=True)
-    df = df[~df.index.duplicated(keep='last')]
+    # Sort chronologically and drop duplicates based on the timestamp column
+    df = df.sort_values('timestamp')
+    df = df.drop_duplicates(subset=['timestamp'], keep='last')
 
-    # 3. Save directly to Parquet
-    output_file = f"{TICKER.lower()}_1m_polygon.parquet"
+    # 3. Save directly to Parquet using DuckDB
+    output_dir = ""
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"{TICKER.lower()}_1m_polygon_2yrs.parquet")
+
     duckdb.sql("SELECT * FROM df").write_parquet(output_file)
 
     print("\n" + "="*50)
     print(f"SUCCESS: Parquet file saved to '{output_file}'")
-    print(f"Total Bar Count : {len(df):,}")
-    print(f"Earliest Timestamp: {df.index.min()}")
-    print(f"Latest Timestamp  : {df.index.max()}")
+    print(f"Total Bar Count   : {len(df):,}")
+    print(f"Earliest Timestamp: {df['timestamp'].min()}")
+    print(f"Latest Timestamp  : {df['timestamp'].max()}")
     print(f"Columns           : {list(df.columns)}")
     print("="*50)
 else:

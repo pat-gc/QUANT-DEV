@@ -1,8 +1,3 @@
+# QUANT LAB
 
-
-
-### Run:
-
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
-
-.\.venv\Scripts\Activate.ps1
+My workspace for the creation, research, and backtesting of quantitative strategies.

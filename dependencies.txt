@@ -1,2 +1,5 @@
 fastparquet
 pyarrow
+plotly
+duckdb
+kaleido
